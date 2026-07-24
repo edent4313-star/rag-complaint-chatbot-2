@@ -1,0 +1,10 @@
+gradio
+faiss-cpu
+sentence-transformers
+transformers
+torch
+pandas
+numpy
+langchain
+accelerate
+pickle-mixin

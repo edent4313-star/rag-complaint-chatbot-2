@@ -1,0 +1,13 @@
+data/
+*.csv
+.ipynb_checkpoints/
+__pycache__/
+.env
+venv/
+__pycache__/
+*.pyc
+.envgit checkout -b TASK-1
+.data\parquet
+.backend\data\.parquet
+.backend\data\.csv
+.ven
