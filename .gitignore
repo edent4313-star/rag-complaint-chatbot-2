@@ -47,14 +47,6 @@ frontend/dist/
 frontend/.vite/
 *.local
 
-# ─── Screenshots / media (not source code) ────────────────────────────────────
-Screenshoot/
-screenshots/
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.mp4
 
 # ─── IDE & OS ─────────────────────────────────────────────────────────────────
 .vscode/settings.json
