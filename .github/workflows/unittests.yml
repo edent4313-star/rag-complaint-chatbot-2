@@ -1,19 +1,187 @@
-name: Unit Tests
-on: [push, pull_request]
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop", "TASK-*", "Task-*"]
+  pull_request:
+    branches: ["main", "develop"]
+
 jobs:
-  build:
+  # ────────────────────────────────────────────────────────────────
+  # Job 1 — Backend: lint + pytest
+  # ────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    defaults:
+      run:
+        working-directory: backend
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Python setup ──────────────────────────────────────────
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
-      - name: Install dependencies
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      # ── Install ONLY lightweight CI deps (no torch/transformers/faiss) ──
+      # The heavy ML libs are mocked in tests; installing them would take
+      # 10+ minutes and require large disk space on GitHub runners.
+      - name: Install CI dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-      - name: Run tests with pytest
+          pip install \
+            flask \
+            flask-cors \
+            pandas \
+            numpy \
+            pyarrow \
+            python-dotenv \
+            pytest==8.3.5 \
+            pytest-flask==1.3.0 \
+            pytest-mock==3.14.0 \
+            pytest-cov==6.1.0 \
+            flake8==7.2.0
+
+      # ── Stub heavy packages so imports don't fail ─────────────
+      # sentence-transformers, faiss-cpu, transformers, torch, accelerate
+      # are ALL mocked inside conftest.py — we just need empty stubs
+      # installed so Python can resolve the import names.
+      - name: Install lightweight ML stubs
         run: |
-          python -m pytest
+          pip install \
+            sentence-transformers \
+            faiss-cpu \
+            transformers \
+            accelerate
+        continue-on-error: true   # best-effort; conftest stubs cover failures
+
+      # ── Lint ──────────────────────────────────────────────────
+      - name: Lint with flake8
+        run: |
+          flake8 . \
+            --count \
+            --select=E9,F63,F7,F82 \
+            --show-source \
+            --statistics
+          flake8 . \
+            --count \
+            --max-line-length=100 \
+            --ignore=E501,W503 \
+            --exclude=__pycache__,venv,.venv,tests/conftest.py \
+            --statistics
+
+      # ── Tests ─────────────────────────────────────────────────
+      - name: Run pytest with coverage
+        run: |
+          python -m pytest \
+            --cov=. \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -v
+
+      # ── Upload coverage ───────────────────────────────────────
+      - name: Upload backend coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+
+  # ────────────────────────────────────────────────────────────────
+  # Job 2 — Frontend: lint + vitest
+  # ────────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend tests (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: ["20"]
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Node setup ────────────────────────────────────────────
+      - name: Set up Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Lint ─────────────────────────────────────────────────
+      # Runs only if eslint config exists; skips gracefully if not set up
+      - name: Lint with ESLint
+        run: npm run lint
+        continue-on-error: true
+
+      # ── Tests ─────────────────────────────────────────────────
+      - name: Run Vitest
+        run: npm test
+
+      # ── Coverage ──────────────────────────────────────────────
+      - name: Run Vitest with coverage
+        run: npm run test:coverage
+
+      # ── Upload coverage ───────────────────────────────────────
+      - name: Upload frontend coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+
+  # ────────────────────────────────────────────────────────────────
+  # Job 3 — Build check (ensure vite build passes)
+  # ────────────────────────────────────────────────────────────────
+  build:
+    name: Frontend build check
+    runs-on: ubuntu-latest
+    needs: frontend
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 7

@@ -45,6 +45,8 @@ def _get_model() -> SentenceTransformer:
 
 def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     """Cosine similarity between two 1-D vectors."""
+    a = np.asarray(a, dtype="float32").ravel()
+    b = np.asarray(b, dtype="float32").ravel()
     denom = (np.linalg.norm(a) * np.linalg.norm(b))
     if denom == 0:
         return 0.0
@@ -77,8 +79,18 @@ class EvaluationService:
         # ── encode everything ────────────────────────────────────────────────
         q_emb   = model.encode(question,   convert_to_numpy=True)
         ans_emb = model.encode(answer,     convert_to_numpy=True)
-        ctx_embs = model.encode(contexts,  convert_to_numpy=True) \
-                   if contexts else np.zeros((0, q_emb.shape[0]))
+
+        # Ensure 1-D
+        q_emb   = np.asarray(q_emb,   dtype="float32").ravel()
+        ans_emb = np.asarray(ans_emb, dtype="float32").ravel()
+
+        if contexts:
+            raw = model.encode(contexts, convert_to_numpy=True)
+            ctx_embs = np.asarray(raw, dtype="float32")
+            if ctx_embs.ndim == 1:
+                ctx_embs = ctx_embs.reshape(1, -1)
+        else:
+            ctx_embs = np.zeros((0, q_emb.shape[0]), dtype="float32")
 
         # ── 1. answer_relevance ──────────────────────────────────────────────
         answer_relevance = max(0.0, _cosine(q_emb, ans_emb))
@@ -115,7 +127,10 @@ class EvaluationService:
         sentences = _split_sentences(answer)
         if not sentences:
             return 0.0
-        sent_embs = model.encode(sentences, convert_to_numpy=True)
+        raw = model.encode(sentences, convert_to_numpy=True)
+        sent_embs = np.asarray(raw, dtype="float32")
+        if sent_embs.ndim == 1:
+            sent_embs = sent_embs.reshape(1, -1)
         grounded = 0
         for s_emb in sent_embs:
             sims = [_cosine(s_emb, c_emb) for c_emb in ctx_embs]
@@ -163,6 +178,9 @@ class EvaluationService:
             return max(sims)
 
         ref_embs = model.encode(sentences, convert_to_numpy=True)
+        ref_embs = np.asarray(ref_embs, dtype="float32")
+        if ref_embs.ndim == 1:
+            ref_embs = ref_embs.reshape(1, -1)
         scores = []
         for r_emb in ref_embs:
             sims = [_cosine(r_emb, c_emb) for c_emb in ctx_embs]

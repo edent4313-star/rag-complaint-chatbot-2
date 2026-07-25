@@ -22,8 +22,13 @@ print("[retriever] Loading parquet (document + metadata columns only)…")
 table = pq.read_table(DATA_PATH, columns=["document", "metadata"])
 df = table.to_pandas()
 
-# Flatten the metadata dict column into separate DataFrame columns
-metadata_df = pd.json_normalize(df["metadata"].tolist())
+# Flatten the metadata column into separate DataFrame columns
+# The column may contain dicts (real parquet) or JSON strings (test stubs)
+raw_metadata = df["metadata"].tolist()
+if raw_metadata and isinstance(raw_metadata[0], str):
+    import json as _json
+    raw_metadata = [_json.loads(m) for m in raw_metadata]
+metadata_df = pd.json_normalize(raw_metadata)
 df = pd.concat([df[["document"]].reset_index(drop=True),
                 metadata_df.reset_index(drop=True)], axis=1)
 
