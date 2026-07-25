@@ -14,7 +14,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 
-DATA_PATH = BASE_DIR / "data" / "complaints.csv"
+DATA_PATH = BASE_DIR / "data" / "filtered_complaints.csv"
 
 VECTOR_STORE = BASE_DIR / "vector_store"
 

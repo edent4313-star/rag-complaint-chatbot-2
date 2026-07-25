@@ -1,25 +1,22 @@
-from src.rag_pipeline import RAGPipeline
+from src.rag_pipeline import answer_question
 
 
 class ChatService:
-
     def __init__(self):
+        pass
 
-        self.pipeline = RAGPipeline()
+    def get_chat_response(self, question):
+        question = (question or "").strip()
 
-    def ask(self, question):
+        if not question:
+            return {"answer": "Please ask a question about the complaints data.", "sources": []}
 
-        answer, sources = self.pipeline.query(question)
-
-        return {
-
-            "question": question,
-
-            "answer": answer,
-
-            "sources": sources
-
-        }
-
-
-chat_service = ChatService()
+        try:
+            answer, retrieved_df = answer_question(question)
+            sources = retrieved_df.to_dict(orient="records") if retrieved_df is not None else []
+            return {"answer": answer, "sources": sources}
+        except Exception as exc:
+            return {
+                "answer": f"Sorry, I could not generate a response right now. {exc}",
+                "sources": [],
+            }

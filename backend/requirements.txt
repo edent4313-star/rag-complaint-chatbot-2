@@ -2,8 +2,10 @@ flask
 flask-cors
 pandas
 numpy
+pyarrow
 sentence-transformers
 faiss-cpu
 transformers
 torch
+accelerate
 python-dotenv

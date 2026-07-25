@@ -1,13 +1,75 @@
-data/
-*.csv
-.ipynb_checkpoints/
+# ─── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
-.env
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual environments
 venv/
-__pycache__/
-*.pyc
-.envgit checkout -b TASK-1
-.data\parquet
-.backend\data\.parquet
-.backend\data\.csv
-.ven
+.venv/
+env/
+.env/
+ENV/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# ─── Data & large binary files ────────────────────────────────────────────────
+# Raw and processed data (too large for git)
+backend/data/raw/
+backend/data/*.parquet
+backend/data/*.csv
+data/raw/
+data/*.parquet
+data/*.csv
+
+# FAISS vector store (binary, large)
+backend/vector_store/*.faiss
+backend/vector_store/*.bin
+backend/vector_store/*.pkl
+
+# Notebooks output (can be large / contain sensitive data)
+notebooks/.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ─── Frontend ─────────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# ─── Screenshots / media (not source code) ────────────────────────────────────
+Screenshoot/
+screenshots/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+
+# ─── IDE & OS ─────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Archives ─────────────────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.rar
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/

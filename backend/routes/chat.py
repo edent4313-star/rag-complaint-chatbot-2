@@ -1,7 +1,6 @@
-from flask import Blueprint
-from flask import request
+from flask import Blueprint, request
 
-from services.chat_service import chat_service
+from services.chat_service import ChatService
 
 chat_bp = Blueprint(
     "chat",
@@ -9,12 +8,11 @@ chat_bp = Blueprint(
     url_prefix="/api"
 )
 
+service = ChatService()
+
 
 @chat_bp.post("/chat")
 def chat():
-
-    body = request.get_json()
-
-    question = body["question"]
-
-    return chat_service.ask(question)
+    body = request.get_json(silent=True) or {}
+    question = body.get("question", "")
+    return service.get_chat_response(question)
