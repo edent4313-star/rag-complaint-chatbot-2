@@ -1,16 +1,18 @@
 """
 Unit tests for EvaluationService.
-Uses the real sentence-transformer stub from conftest so no network is needed.
+Heavy ML deps are stubbed in conftest.py — no network or GPU required.
 """
-import pytest
 import numpy as np
-from unittest.mock import patch, MagicMock
+import pytest
+from unittest.mock import MagicMock, patch
+
 from services.evaluation_service import EvaluationService, _cosine, _split_sentences
 
 
-# ── helper function tests ──────────────────────────────────────────────────────
+# ── Helper function tests ──────────────────────────────────────────────────────
 
 class TestCosine:
+
     def test_identical_vectors_return_one(self):
         v = np.array([1.0, 0.0, 0.0])
         assert abs(_cosine(v, v) - 1.0) < 1e-6
@@ -32,6 +34,7 @@ class TestCosine:
 
 
 class TestSplitSentences:
+
     def test_splits_on_period(self):
         text = "First sentence. Second sentence. Third sentence."
         parts = _split_sentences(text)
@@ -43,7 +46,6 @@ class TestSplitSentences:
         assert len(parts) >= 2
 
     def test_short_fragments_filtered(self):
-        # fragments under 10 chars should be dropped
         parts = _split_sentences("Hi. Ok. This is a proper sentence.")
         for p in parts:
             assert len(p) >= 10
@@ -52,7 +54,7 @@ class TestSplitSentences:
         assert _split_sentences("") == []
 
 
-# ── EvaluationService tests ────────────────────────────────────────────────────
+# ── EvaluationService fixtures ─────────────────────────────────────────────────
 
 @pytest.fixture
 def svc():
@@ -61,25 +63,24 @@ def svc():
 
 @pytest.fixture
 def mock_model():
-    """Return a fake SentenceTransformer with consistent 4-D unit vectors."""
+    """Fake SentenceTransformer with consistent 4-D unit vectors."""
     m = MagicMock()
 
     def _encode(texts, convert_to_numpy=False, **kw):
-        import numpy as np
         if isinstance(texts, str):
             texts = [texts]
         n = len(texts)
         dim = 4
         arr = np.zeros((n, dim), dtype="float32")
         for i in range(n):
-            # All sentences get a non-zero first component for simplicity
             arr[i, 0] = 1.0
-        # Single text → 1-D, multiple → 2-D
         return arr[0] if n == 1 else arr
 
     m.encode.side_effect = _encode
     return m
 
+
+# ── Output shape tests ─────────────────────────────────────────────────────────
 
 class TestEvaluationServiceOutputShape:
 
@@ -94,7 +95,7 @@ class TestEvaluationServiceOutputShape:
             )
         assert set(scores.keys()) == {
             "faithfulness", "answer_relevance",
-            "context_precision", "context_recall"
+            "context_precision", "context_recall",
         }
 
     def test_all_scores_between_zero_and_one(self, svc, mock_model):
@@ -110,7 +111,7 @@ class TestEvaluationServiceOutputShape:
                 ],
             )
         for key, val in scores.items():
-            assert 0.0 <= val <= 1.0, f"{key} = {val} is out of [0, 1]"
+            assert 0.0 <= val <= 1.0, f"{key} = {val} out of [0, 1]"
 
     def test_scores_are_rounded_to_three_decimals(self, svc, mock_model):
         with patch("services.evaluation_service._get_model", return_value=mock_model), \
@@ -120,6 +121,8 @@ class TestEvaluationServiceOutputShape:
         for key, val in scores.items():
             assert val == round(val, 3), f"{key} not rounded: {val}"
 
+
+# ── Edge case tests ────────────────────────────────────────────────────────────
 
 class TestEvaluationServiceEdgeCases:
 
@@ -143,7 +146,7 @@ class TestEvaluationServiceEdgeCases:
         assert isinstance(scores["context_recall"], float)
 
     def test_identical_answer_and_question_high_relevance(self, svc, mock_model):
-        """When answer and question share the same mock embedding, cosine = 1."""
+        """Identical question and answer → cosine similarity = 1.0."""
         with patch("services.evaluation_service._get_model", return_value=mock_model), \
              patch("services.evaluation_service._split_sentences",
                    return_value=["what are credit card complaints?"]):

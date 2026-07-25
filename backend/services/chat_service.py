@@ -2,6 +2,7 @@ from src.rag_pipeline import answer_question
 
 
 class ChatService:
+
     def __init__(self):
         pass
 
@@ -9,11 +10,18 @@ class ChatService:
         question = (question or "").strip()
 
         if not question:
-            return {"answer": "Please ask a question about the complaints data.", "sources": []}
+            return {
+                "answer": "Please ask a question about the complaints data.",
+                "sources": [],
+            }
 
         try:
             answer, retrieved_df = answer_question(question)
-            sources = retrieved_df.to_dict(orient="records") if retrieved_df is not None else []
+            sources = (
+                retrieved_df.to_dict(orient="records")
+                if retrieved_df is not None
+                else []
+            )
             return {"answer": answer, "sources": sources}
         except Exception as exc:
             return {

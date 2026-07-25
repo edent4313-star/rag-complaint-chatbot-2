@@ -2,35 +2,41 @@
 Unit tests for DashboardService.
 Uses an in-memory DataFrame so no CSV file is required.
 """
-import pytest
 import pandas as pd
-from unittest.mock import patch, MagicMock
+import pytest
 from flask import Flask
+from unittest.mock import patch
 
 
-# ── Build a minimal fake CSV DataFrame ────────────────────────────────────────
+# ── Fake CSV DataFrame ─────────────────────────────────────────────────────────
 
 FAKE_CSV_DATA = {
-    "Date received":               ["2023-01", "2023-02", "2023-02", "2023-03", "2023-03"],
-    "Product":                     [None, None, None, None, None],  # always null in real data
-    "Sub-product":                 ["Mortgage", "Credit card", "Mortgage", "Student loan", "Credit card"],
-    "Issue":                       ["Loan denial", "Billing error", "Loan denial", "Payment issue", "Fraud"],
-    "Sub-issue":                   ["", "", "", "", ""],
-    "Consumer complaint narrative":["Long narrative one.", "Long narrative two.", "Three.", "Four.", "Five."],
-    "Company public response":     ["", "", "", "", ""],
-    "Company":                     ["Bank A", "Bank B", "Bank A", "Bank C", "Bank B"],
-    "State":                       ["CA", "TX", "CA", "NY", "TX"],
-    "ZIP code":                    ["90001", "75001", "90002", "10001", "75002"],
-    "Tags":                        ["", "", "", "", ""],
-    "Consumer consent provided?":  ["Yes", "Yes", "Yes", "Yes", "Yes"],
-    "Submitted via":               ["Web", "Web", "Web", "Web", "Web"],
-    "Date sent to company":        ["2023-01", "2023-02", "2023-02", "2023-03", "2023-03"],
-    "Company response to consumer":["Closed", "Closed", "Closed", "Closed", "Closed"],
-    "Timely response?":            ["Yes", "Yes", "Yes", "Yes", "Yes"],
-    "Consumer disputed?":          ["No", "No", "No", "No", "No"],
-    "Complaint ID":                [1, 2, 3, 4, 5],
-    "word_count":                  [3, 3, 1, 1, 1],
-    "cleaned_narrative":           ["narrative", "narrative", "narrative", "narrative", "narrative"],
+    "Date received": ["2023-01", "2023-02", "2023-02", "2023-03", "2023-03"],
+    "Product": [None, None, None, None, None],
+    "Sub-product": ["Mortgage", "Credit card", "Mortgage", "Student loan", "Credit card"],
+    "Issue": ["Loan denial", "Billing error", "Loan denial", "Payment issue", "Fraud"],
+    "Sub-issue": ["", "", "", "", ""],
+    "Consumer complaint narrative": [
+        "Long narrative one.",
+        "Long narrative two.",
+        "Three.",
+        "Four.",
+        "Five.",
+    ],
+    "Company public response": ["", "", "", "", ""],
+    "Company": ["Bank A", "Bank B", "Bank A", "Bank C", "Bank B"],
+    "State": ["CA", "TX", "CA", "NY", "TX"],
+    "ZIP code": ["90001", "75001", "90002", "10001", "75002"],
+    "Tags": ["", "", "", "", ""],
+    "Consumer consent provided?": ["Yes", "Yes", "Yes", "Yes", "Yes"],
+    "Submitted via": ["Web", "Web", "Web", "Web", "Web"],
+    "Date sent to company": ["2023-01", "2023-02", "2023-02", "2023-03", "2023-03"],
+    "Company response to consumer": ["Closed", "Closed", "Closed", "Closed", "Closed"],
+    "Timely response?": ["Yes", "Yes", "Yes", "Yes", "Yes"],
+    "Consumer disputed?": ["No", "No", "No", "No", "No"],
+    "Complaint ID": [1, 2, 3, 4, 5],
+    "word_count": [3, 3, 1, 1, 1],
+    "cleaned_narrative": ["narrative"] * 5,
 }
 FAKE_DF = pd.DataFrame(FAKE_CSV_DATA)
 
@@ -60,15 +66,15 @@ class TestGetKPIs:
 
     def test_companies_count(self, svc, flask_ctx):
         data = svc.get_kpis().get_json()
-        assert data["companies"] == 3  # Bank A, B, C
+        assert data["companies"] == 3
 
     def test_states_count(self, svc, flask_ctx):
         data = svc.get_kpis().get_json()
-        assert data["states"] == 3  # CA, TX, NY
+        assert data["states"] == 3
 
     def test_products_count(self, svc, flask_ctx):
         data = svc.get_kpis().get_json()
-        assert data["products"] == 3  # Mortgage, Credit card, Student loan
+        assert data["products"] == 3
 
     def test_average_length_is_float(self, svc, flask_ctx):
         data = svc.get_kpis().get_json()

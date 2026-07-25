@@ -3,16 +3,18 @@ Integration tests for all dashboard API routes.
 conftest.py autouse fixture patches retriever I/O.
 DashboardService CSV read is patched inline.
 """
-import pytest
+import importlib
+
 import pandas as pd
+import pytest
 from unittest.mock import patch
 
 FAKE_CSV = pd.DataFrame({
-    "Date received":                ["2023-01", "2023-02", "2023-02"],
-    "Sub-product":                  ["Mortgage", "Credit card", "Mortgage"],
-    "Issue":                        ["Loan denial", "Billing error", "Loan denial"],
-    "Company":                      ["Bank A", "Bank B", "Bank A"],
-    "State":                        ["CA", "TX", "CA"],
+    "Date received": ["2023-01", "2023-02", "2023-02"],
+    "Sub-product": ["Mortgage", "Credit card", "Mortgage"],
+    "Issue": ["Loan denial", "Billing error", "Loan denial"],
+    "Company": ["Bank A", "Bank B", "Bank A"],
+    "State": ["CA", "TX", "CA"],
     "Consumer complaint narrative": ["text one", "text two", "text three"],
 })
 
@@ -20,11 +22,9 @@ FAKE_CSV = pd.DataFrame({
 @pytest.fixture
 def client():
     with patch("services.dashboard_service.pd.read_csv", return_value=FAKE_CSV.copy()):
-        # Force DashboardService to re-instantiate with the mock CSV
-        import importlib
         import services.dashboard_service as ds_mod
-        importlib.reload(ds_mod)
         import routes.dashboard as dash_mod
+        importlib.reload(ds_mod)
         dash_mod.service = ds_mod.DashboardService()
 
         from app import app
@@ -33,6 +33,7 @@ def client():
 
 
 class TestDashboardKPIs:
+
     def test_kpis_returns_200(self, client):
         assert client.get("/api/dashboard/kpis").status_code == 200
 
@@ -47,10 +48,11 @@ class TestDashboardKPIs:
 
     def test_companies_count(self, client):
         data = client.get("/api/dashboard/kpis").get_json()
-        assert data["companies"] == 2  # Bank A, Bank B
+        assert data["companies"] == 2
 
 
 class TestDashboardProducts:
+
     def test_returns_200(self, client):
         assert client.get("/api/dashboard/products").status_code == 200
 
@@ -63,6 +65,7 @@ class TestDashboardProducts:
 
 
 class TestDashboardIssues:
+
     def test_returns_200(self, client):
         assert client.get("/api/dashboard/issues").status_code == 200
 
@@ -71,6 +74,7 @@ class TestDashboardIssues:
 
 
 class TestDashboardCompanies:
+
     def test_returns_200(self, client):
         assert client.get("/api/dashboard/companies").status_code == 200
 
@@ -79,6 +83,7 @@ class TestDashboardCompanies:
 
 
 class TestDashboardTrends:
+
     def test_returns_200(self, client):
         assert client.get("/api/dashboard/trends").status_code == 200
 

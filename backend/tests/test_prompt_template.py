@@ -2,7 +2,6 @@
 Unit tests for PromptEngine in src/prompt_template.py.
 No external dependencies — pure logic tests.
 """
-import pytest
 from src.prompt_template import PromptEngine
 
 
@@ -23,7 +22,6 @@ class TestPromptEngineFormat:
 
     def test_contains_system_prompt_keywords(self):
         result = PromptEngine.format(context="ctx", question="q")
-        # System prompt must orient the model as a financial analyst
         assert "Financial Complaint Analyst" in result
 
     def test_answer_marker_present(self):
@@ -55,7 +53,7 @@ class TestPromptEngineBuildPrompt:
     def test_build_prompt_contains_question(self):
         result = self.engine.build_prompt(
             question="What are mortgage issues?",
-            contexts=["ctx"]
+            contexts=["ctx"],
         )
         assert "What are mortgage issues?" in result
 

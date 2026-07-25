@@ -4,17 +4,18 @@ The RAG pipeline (retriever + LLM) is mocked so no models are loaded.
 conftest.py's autouse fixture patches the parquet/faiss reads.
 """
 import json
-import pytest
+
 import pandas as pd
+import pytest
 from unittest.mock import patch
 
 FAKE_SOURCES = pd.DataFrame({
     "document": ["complaint about fees", "another complaint"],
-    "company":  ["Bank A", "Bank B"],
-    "product":  ["Mortgage", "Credit card"],
-    "issue":    ["Billing", "Fraud"],
-    "state":    ["CA", "TX"],
-    "score":    [0.9, 0.8],
+    "company": ["Bank A", "Bank B"],
+    "product": ["Mortgage", "Credit card"],
+    "issue": ["Billing", "Fraud"],
+    "state": ["CA", "TX"],
+    "score": [0.9, 0.8],
 })
 
 
@@ -84,14 +85,16 @@ class TestEvaluateEndpoint:
     def test_valid_payload_returns_200(self, client):
         res = self._post(client, {
             "question": "What are mortgage complaints?",
-            "answer":   "Customers complain about loan modifications.",
+            "answer": "Customers complain about loan modifications.",
             "contexts": ["Loan modification denials are common."],
         })
         assert res.status_code == 200
 
     def test_response_has_all_four_metrics(self, client):
         data = self._post(client, {
-            "question": "q", "answer": "a", "contexts": ["ctx"],
+            "question": "q",
+            "answer": "a",
+            "contexts": ["ctx"],
         }).get_json()
         for key in ("faithfulness", "answer_relevance", "context_precision", "context_recall"):
             assert key in data, f"Missing metric: {key}"
@@ -110,8 +113,10 @@ class TestEvaluateEndpoint:
 
     def test_with_ground_truth(self, client):
         res = self._post(client, {
-            "question": "q", "answer": "a",
-            "contexts": ["ctx"], "ground_truth": "ideal answer",
+            "question": "q",
+            "answer": "a",
+            "contexts": ["ctx"],
+            "ground_truth": "ideal answer",
         })
         assert res.status_code == 200
         assert "context_recall" in res.get_json()

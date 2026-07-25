@@ -2,11 +2,7 @@ from flask import Blueprint, request
 
 from services.chat_service import ChatService
 
-chat_bp = Blueprint(
-    "chat",
-    __name__,
-    url_prefix="/api"
-)
+chat_bp = Blueprint("chat", __name__, url_prefix="/api")
 
 service = ChatService()
 

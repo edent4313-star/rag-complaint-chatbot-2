@@ -1,16 +1,15 @@
 import os
 
 import faiss
-import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 from sentence_transformers import SentenceTransformer
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-_SRC_DIR  = os.path.dirname(os.path.abspath(__file__))
+_SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _BASE_DIR = os.path.dirname(_SRC_DIR)
 
-DATA_PATH  = os.path.join(_BASE_DIR, "data", "complaint_embeddings.parquet")
+DATA_PATH = os.path.join(_BASE_DIR, "data", "complaint_embeddings.parquet")
 INDEX_PATH = os.path.join(_BASE_DIR, "vector_store", "complaints.faiss")
 
 # ── Load embedding model ───────────────────────────────────────────────────────
@@ -22,15 +21,16 @@ print("[retriever] Loading parquet (document + metadata columns only)…")
 table = pq.read_table(DATA_PATH, columns=["document", "metadata"])
 df = table.to_pandas()
 
-# Flatten the metadata column into separate DataFrame columns
-# The column may contain dicts (real parquet) or JSON strings (test stubs)
+# Flatten metadata: real parquet has dicts; test stubs have JSON strings
 raw_metadata = df["metadata"].tolist()
 if raw_metadata and isinstance(raw_metadata[0], str):
     import json as _json
     raw_metadata = [_json.loads(m) for m in raw_metadata]
 metadata_df = pd.json_normalize(raw_metadata)
-df = pd.concat([df[["document"]].reset_index(drop=True),
-                metadata_df.reset_index(drop=True)], axis=1)
+df = pd.concat(
+    [df[["document"]].reset_index(drop=True), metadata_df.reset_index(drop=True)],
+    axis=1,
+)
 
 print(f"[retriever] Loaded {len(df):,} complaint records.")
 
@@ -41,10 +41,7 @@ print(f"[retriever] FAISS index ready — {index.ntotal:,} vectors.")
 
 
 def retrieve(question: str, top_k: int = 5) -> pd.DataFrame:
-    """
-    Encode *question*, search the FAISS index, and return a DataFrame of
-    the top_k matching complaint records with an added 'score' column.
-    """
+    """Encode question, search FAISS, return top_k records with a score column."""
     query_vec = model.encode([question]).astype("float32")
     faiss.normalize_L2(query_vec)
 

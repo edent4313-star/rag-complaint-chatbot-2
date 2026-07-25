@@ -2,11 +2,7 @@ from flask import Blueprint
 
 from services.dashboard_service import DashboardService
 
-dashboard_bp = Blueprint(
-    "dashboard",
-    __name__,
-    url_prefix="/api/dashboard"
-)
+dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/api/dashboard")
 
 service = DashboardService()
 

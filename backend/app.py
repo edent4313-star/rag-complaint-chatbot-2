@@ -19,7 +19,7 @@ def home():
     return {
         "project": "Complaint Intelligence Platform",
         "version": "1.0",
-        "status": "Running"
+        "status": "Running",
     }
 
 

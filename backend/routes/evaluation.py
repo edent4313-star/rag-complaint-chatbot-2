@@ -2,11 +2,7 @@ from flask import Blueprint, request, jsonify
 
 from services.evaluation_service import EvaluationService
 
-evaluation_bp = Blueprint(
-    "evaluation",
-    __name__,
-    url_prefix="/api"
-)
+evaluation_bp = Blueprint("evaluation", __name__, url_prefix="/api")
 
 _service = EvaluationService()
 
@@ -15,26 +11,21 @@ _service = EvaluationService()
 def evaluate():
     """
     POST /api/evaluate
+
     Body (JSON):
-      {
-        "question":     "...",          required
-        "answer":       "...",          required
-        "contexts":     ["...", ...],   required  (list of retrieved doc strings)
-        "ground_truth": "..."           optional
-      }
-    Returns:
-      {
-        "faithfulness":      0.0–1.0,
-        "answer_relevance":  0.0–1.0,
-        "context_precision": 0.0–1.0,
-        "context_recall":    0.0–1.0
-      }
+        question      str   required
+        answer        str   required
+        contexts      list  required  (retrieved document strings)
+        ground_truth  str   optional
+
+    Returns JSON with four float scores (0–1):
+        faithfulness, answer_relevance, context_precision, context_recall
     """
     body = request.get_json(silent=True) or {}
 
-    question     = (body.get("question")     or "").strip()
-    answer       = (body.get("answer")       or "").strip()
-    contexts     = body.get("contexts")      or []
+    question = (body.get("question") or "").strip()
+    answer = (body.get("answer") or "").strip()
+    contexts = body.get("contexts") or []
     ground_truth = (body.get("ground_truth") or "").strip() or None
 
     if not question or not answer:
@@ -43,7 +34,6 @@ def evaluate():
     if not isinstance(contexts, list):
         contexts = [str(contexts)]
 
-    # Filter out blank/None context strings
     contexts = [str(c) for c in contexts if c and str(c).strip()]
 
     try:

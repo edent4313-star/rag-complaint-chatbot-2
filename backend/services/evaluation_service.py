@@ -8,32 +8,24 @@ Self-contained RAG evaluation using only already-installed libs:
 Metrics computed
 ────────────────
 faithfulness
-    What fraction of the answer's sentences can be semantically
-    grounded in at least one retrieved context chunk.
-    Score = (sentences with a context match ≥ threshold) / total sentences
+    Fraction of the answer's sentences grounded in a retrieved context chunk.
 
 answer_relevance
-    Cosine similarity between the question embedding and the
-    answer embedding.  High score ⟹ the answer is on-topic.
+    Cosine similarity between the question embedding and the answer embedding.
 
-context_recall   (requires ground_truth; falls back to answer similarity)
-    How much of the ground-truth answer is covered by the retrieved
-    contexts.  Score = avg max-similarity of each ground-truth sentence
-    against the context pool.
+context_recall
+    How much of the ground-truth answer is covered by the retrieved contexts.
+    Falls back to answer-vs-context similarity when no ground truth is given.
 
 context_precision
-    Signal-to-noise of the retrieved set: what fraction of the
-    retrieved chunks are actually relevant to the question.
-    Score = fraction of chunks whose similarity to the question ≥ threshold.
+    Fraction of retrieved chunks relevant to the question (cosine >= threshold).
 """
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-# Reuse the same model already loaded by the retriever where possible.
-# We load lazily so the service module itself is cheap to import.
 _model: SentenceTransformer | None = None
-_THRESHOLD = 0.40          # cosine similarity threshold for "relevant"
+_THRESHOLD = 0.40
 
 
 def _get_model() -> SentenceTransformer:
@@ -47,7 +39,7 @@ def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     """Cosine similarity between two 1-D vectors."""
     a = np.asarray(a, dtype="float32").ravel()
     b = np.asarray(b, dtype="float32").ravel()
-    denom = (np.linalg.norm(a) * np.linalg.norm(b))
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
     if denom == 0:
         return 0.0
     return float(np.dot(a, b) / denom)
@@ -60,8 +52,6 @@ def _split_sentences(text: str) -> list[str]:
     return [s.strip() for s in sentences if len(s.strip()) > 10]
 
 
-# ─── public API ───────────────────────────────────────────────────────────────
-
 class EvaluationService:
 
     def evaluate(
@@ -71,18 +61,15 @@ class EvaluationService:
         contexts: list[str],
         ground_truth: str | None = None,
     ) -> dict:
-        """
-        Returns a dict with four float scores, each in [0, 1].
-        """
+        """Return a dict with four float scores, each in [0, 1]."""
         model = _get_model()
 
-        # ── encode everything ────────────────────────────────────────────────
-        q_emb   = model.encode(question,   convert_to_numpy=True)
-        ans_emb = model.encode(answer,     convert_to_numpy=True)
-
-        # Ensure 1-D
-        q_emb   = np.asarray(q_emb,   dtype="float32").ravel()
-        ans_emb = np.asarray(ans_emb, dtype="float32").ravel()
+        q_emb = np.asarray(
+            model.encode(question, convert_to_numpy=True), dtype="float32"
+        ).ravel()
+        ans_emb = np.asarray(
+            model.encode(answer, convert_to_numpy=True), dtype="float32"
+        ).ravel()
 
         if contexts:
             raw = model.encode(contexts, convert_to_numpy=True)
@@ -92,28 +79,19 @@ class EvaluationService:
         else:
             ctx_embs = np.zeros((0, q_emb.shape[0]), dtype="float32")
 
-        # ── 1. answer_relevance ──────────────────────────────────────────────
         answer_relevance = max(0.0, _cosine(q_emb, ans_emb))
-
-        # ── 2. faithfulness ──────────────────────────────────────────────────
         faithfulness = self._faithfulness(model, answer, ctx_embs)
-
-        # ── 3. context_precision ─────────────────────────────────────────────
         context_precision = self._context_precision(q_emb, ctx_embs)
-
-        # ── 4. context_recall ────────────────────────────────────────────────
         context_recall = self._context_recall(
             model, ground_truth, answer, ctx_embs, ans_emb
         )
 
         return {
-            "faithfulness":       round(faithfulness,       3),
-            "answer_relevance":   round(answer_relevance,   3),
-            "context_precision":  round(context_precision,  3),
-            "context_recall":     round(context_recall,     3),
+            "faithfulness": round(faithfulness, 3),
+            "answer_relevance": round(answer_relevance, 3),
+            "context_precision": round(context_precision, 3),
+            "context_recall": round(context_recall, 3),
         }
-
-    # ── private helpers ───────────────────────────────────────────────────────
 
     @staticmethod
     def _faithfulness(
@@ -121,7 +99,6 @@ class EvaluationService:
         answer: str,
         ctx_embs: np.ndarray,
     ) -> float:
-        """Fraction of answer sentences grounded in a context chunk."""
         if ctx_embs.shape[0] == 0:
             return 0.0
         sentences = _split_sentences(answer)
@@ -131,11 +108,10 @@ class EvaluationService:
         sent_embs = np.asarray(raw, dtype="float32")
         if sent_embs.ndim == 1:
             sent_embs = sent_embs.reshape(1, -1)
-        grounded = 0
-        for s_emb in sent_embs:
-            sims = [_cosine(s_emb, c_emb) for c_emb in ctx_embs]
-            if max(sims) >= _THRESHOLD:
-                grounded += 1
+        grounded = sum(
+            1 for s_emb in sent_embs
+            if max(_cosine(s_emb, c_emb) for c_emb in ctx_embs) >= _THRESHOLD
+        )
         return grounded / len(sentences)
 
     @staticmethod
@@ -143,7 +119,6 @@ class EvaluationService:
         q_emb: np.ndarray,
         ctx_embs: np.ndarray,
     ) -> float:
-        """Fraction of retrieved chunks that are relevant to the question."""
         if ctx_embs.shape[0] == 0:
             return 0.0
         relevant = sum(
@@ -160,29 +135,18 @@ class EvaluationService:
         ctx_embs: np.ndarray,
         ans_emb: np.ndarray,
     ) -> float:
-        """
-        If ground_truth provided: avg max-similarity of each GT sentence
-        against the context pool.
-        Otherwise: cosine similarity of the answer against the context pool
-        (proxy for 'did the context support the answer').
-        """
         if ctx_embs.shape[0] == 0:
             return 0.0
-
         reference = ground_truth if ground_truth and ground_truth.strip() else answer
         sentences = _split_sentences(reference)
-
         if not sentences:
-            # fall back to answer-vs-context similarity
-            sims = [_cosine(ans_emb, c_emb) for c_emb in ctx_embs]
-            return max(sims)
-
-        ref_embs = model.encode(sentences, convert_to_numpy=True)
-        ref_embs = np.asarray(ref_embs, dtype="float32")
+            return max(_cosine(ans_emb, c_emb) for c_emb in ctx_embs)
+        raw = model.encode(sentences, convert_to_numpy=True)
+        ref_embs = np.asarray(raw, dtype="float32")
         if ref_embs.ndim == 1:
             ref_embs = ref_embs.reshape(1, -1)
-        scores = []
-        for r_emb in ref_embs:
-            sims = [_cosine(r_emb, c_emb) for c_emb in ctx_embs]
-            scores.append(max(sims))
+        scores = [
+            max(_cosine(r_emb, c_emb) for c_emb in ctx_embs)
+            for r_emb in ref_embs
+        ]
         return float(np.mean(scores))
