@@ -1,17 +1,10 @@
 import re
 import pandas as pd
 
-'''def filter_products(df, products):
-
-    return df[
-        df["Product"]
-        .isin(products)
-    ]'''
-
 product_map = {
     "credit_card": [
         "Credit card",
-        "Credit card or prepaid card"
+        "Credit card or prepaid card",
     ],
     "personal_loan": [
         "Payday loan, title loan, personal loan, or advance loan",
@@ -28,6 +21,7 @@ product_map = {
     ]
 }
 
+
 def filter_products(df, combined_list):
     return df[df["Product"].isin(combined_list)]
 
@@ -36,14 +30,17 @@ def filter_by_groups(df, group_keys):
     combined = []
     for key in group_keys:
         combined.extend(product_map[key])
-    return filter_products(df, combined)
-def remove_empty_narratives(df):
 
+    return filter_products(df, combined)
+
+
+def remove_empty_narratives(df):
     col = "Consumer complaint narrative"
 
     return df[
         df[col].notna()
     ]
+
 
 def clean_text(text):
 
