@@ -1,7 +1,6 @@
 """
 Integration tests for the chat and evaluate routes.
-The RAG pipeline (retriever + LLM) is mocked so no models are loaded.
-conftest.py's autouse fixture patches the parquet/faiss reads.
+RAG pipeline and CSV are mocked via conftest fixtures — no files needed.
 """
 import json
 
@@ -19,13 +18,11 @@ FAKE_SOURCES = pd.DataFrame({
 })
 
 
+# Override the conftest client to also mock the RAG pipeline
 @pytest.fixture
-def client():
-    """Flask test client with the RAG pipeline fully mocked."""
+def client(app):
     with patch("src.rag_pipeline.retrieve", return_value=FAKE_SOURCES), \
          patch("src.rag_pipeline.generate_answer", return_value="mocked answer"):
-        from app import app
-        app.config["TESTING"] = True
         yield app.test_client()
 
 

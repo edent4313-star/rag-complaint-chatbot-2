@@ -142,9 +142,37 @@ def patch_retriever_io(monkeypatch):
     monkeypatch.setattr("faiss.read_index", lambda path: _FakeIndex())
 
 
+@pytest.fixture(autouse=True)
+def reset_dashboard_service():
+    """Reset the lazy dashboard service singleton between tests.
+
+    Without this, a test that triggers real CSV loading would cache that
+    instance and corrupt subsequent tests (or vice versa).
+    """
+    import routes.dashboard as dash_mod
+    dash_mod._service = None
+    yield
+    dash_mod._service = None
+
+
 @pytest.fixture
-def app():
-    """Flask test app with all blueprints; RAG pipeline mocked."""
+def mock_csv():
+    """Patch pd.read_csv to return a minimal in-memory DataFrame."""
+    fake = pd.DataFrame({
+        "Date received": ["2023-01", "2023-02"],
+        "Sub-product": ["Mortgage", "Credit card"],
+        "Issue": ["Loan denial", "Billing error"],
+        "Company": ["Bank A", "Bank B"],
+        "State": ["CA", "TX"],
+        "Consumer complaint narrative": ["text one", "text two"],
+    })
+    with mock.patch("services.dashboard_service.pd.read_csv", return_value=fake):
+        yield fake
+
+
+@pytest.fixture
+def app(mock_csv):
+    """Flask test app with all blueprints; RAG pipeline and CSV mocked."""
     with mock.patch("src.rag_pipeline.retrieve", return_value=_fake_df), \
          mock.patch("src.rag_pipeline.generate_answer", return_value="mocked answer"):
         from app import app as flask_app

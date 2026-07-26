@@ -1,35 +1,12 @@
 """
 Integration tests for all dashboard API routes.
-conftest.py autouse fixture patches retriever I/O.
-DashboardService CSV read is patched inline.
+CSV and retriever I/O are mocked via conftest fixtures — no files needed.
 """
-import importlib
-
-import pandas as pd
 import pytest
-from unittest.mock import patch
-
-FAKE_CSV = pd.DataFrame({
-    "Date received": ["2023-01", "2023-02", "2023-02"],
-    "Sub-product": ["Mortgage", "Credit card", "Mortgage"],
-    "Issue": ["Loan denial", "Billing error", "Loan denial"],
-    "Company": ["Bank A", "Bank B", "Bank A"],
-    "State": ["CA", "TX", "CA"],
-    "Consumer complaint narrative": ["text one", "text two", "text three"],
-})
 
 
-@pytest.fixture
-def client():
-    with patch("services.dashboard_service.pd.read_csv", return_value=FAKE_CSV.copy()):
-        import services.dashboard_service as ds_mod
-        import routes.dashboard as dash_mod
-        importlib.reload(ds_mod)
-        dash_mod.service = ds_mod.DashboardService()
-
-        from app import app
-        app.config["TESTING"] = True
-        yield app.test_client()
+# Uses the shared app + client fixtures from conftest.py
+# (which already mock pd.read_csv via mock_csv and reset the lazy service)
 
 
 class TestDashboardKPIs:
@@ -44,7 +21,7 @@ class TestDashboardKPIs:
 
     def test_total_complaints_is_correct(self, client):
         data = client.get("/api/dashboard/kpis").get_json()
-        assert data["total_complaints"] == 3
+        assert data["total_complaints"] == 2
 
     def test_companies_count(self, client):
         data = client.get("/api/dashboard/kpis").get_json()

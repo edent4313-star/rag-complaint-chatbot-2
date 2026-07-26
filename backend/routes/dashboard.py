@@ -4,29 +4,37 @@ from services.dashboard_service import DashboardService
 
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/api/dashboard")
 
-service = DashboardService()
+# Lazy singleton — instantiated on first request so tests can mock pd.read_csv
+_service = None
+
+
+def _get_service():
+    global _service
+    if _service is None:
+        _service = DashboardService()
+    return _service
 
 
 @dashboard_bp.get("/kpis")
 def kpis():
-    return service.get_kpis()
+    return _get_service().get_kpis()
 
 
 @dashboard_bp.get("/products")
 def products():
-    return service.product_distribution()
+    return _get_service().product_distribution()
 
 
 @dashboard_bp.get("/issues")
 def issues():
-    return service.top_issues()
+    return _get_service().top_issues()
 
 
 @dashboard_bp.get("/companies")
 def companies():
-    return service.top_companies()
+    return _get_service().top_companies()
 
 
 @dashboard_bp.get("/trends")
 def trends():
-    return service.monthly_trend()
+    return _get_service().monthly_trend()
