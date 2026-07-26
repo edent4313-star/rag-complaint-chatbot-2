@@ -1,3 +1,11 @@
+"""
+retriever.py — lazy-loaded FAISS retriever.
+
+All I/O (parquet read, FAISS index load, model load) is deferred until
+the first call to retrieve(). This allows pytest to patch pq.read_table
+and faiss.read_index before any real disk access happens.
+"""
+import json as _json
 import os
 
 import faiss
@@ -12,43 +20,52 @@ _BASE_DIR = os.path.dirname(_SRC_DIR)
 DATA_PATH = os.path.join(_BASE_DIR, "data", "complaint_embeddings.parquet")
 INDEX_PATH = os.path.join(_BASE_DIR, "vector_store", "complaints.faiss")
 
-# ── Load embedding model ───────────────────────────────────────────────────────
-print("[retriever] Loading sentence-transformer model…")
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+# ── Lazy singletons ────────────────────────────────────────────────────────────
+_model = None
+_df = None
+_index = None
 
-# ── Load parquet WITHOUT the embedding column (saves ~7 GB RAM) ───────────────
-print("[retriever] Loading parquet (document + metadata columns only)…")
-table = pq.read_table(DATA_PATH, columns=["document", "metadata"])
-df = table.to_pandas()
 
-# Flatten metadata: real parquet has dicts; test stubs have JSON strings
-raw_metadata = df["metadata"].tolist()
-if raw_metadata and isinstance(raw_metadata[0], str):
-    import json as _json
-    raw_metadata = [_json.loads(m) for m in raw_metadata]
-metadata_df = pd.json_normalize(raw_metadata)
-df = pd.concat(
-    [df[["document"]].reset_index(drop=True), metadata_df.reset_index(drop=True)],
-    axis=1,
-)
+def _load():
+    """Load model, parquet, and FAISS index on first use."""
+    global _model, _df, _index
 
-print(f"[retriever] Loaded {len(df):,} complaint records.")
+    if _model is None:
+        print("[retriever] Loading sentence-transformer model…")
+        _model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-# ── Load FAISS index ───────────────────────────────────────────────────────────
-print("[retriever] Loading FAISS index…")
-index = faiss.read_index(INDEX_PATH)
-print(f"[retriever] FAISS index ready — {index.ntotal:,} vectors.")
+    if _df is None:
+        print("[retriever] Loading parquet (document + metadata columns only)…")
+        table = pq.read_table(DATA_PATH, columns=["document", "metadata"])
+        df = table.to_pandas()
+
+        raw_metadata = df["metadata"].tolist()
+        if raw_metadata and isinstance(raw_metadata[0], str):
+            raw_metadata = [_json.loads(m) for m in raw_metadata]
+        metadata_df = pd.json_normalize(raw_metadata)
+        _df = pd.concat(
+            [df[["document"]].reset_index(drop=True),
+             metadata_df.reset_index(drop=True)],
+            axis=1,
+        )
+        print(f"[retriever] Loaded {len(_df):,} complaint records.")
+
+    if _index is None:
+        print("[retriever] Loading FAISS index…")
+        _index = faiss.read_index(INDEX_PATH)
+        print(f"[retriever] FAISS index ready — {_index.ntotal:,} vectors.")
 
 
 def retrieve(question: str, top_k: int = 5) -> pd.DataFrame:
-    """Encode question, search FAISS, return top_k records with a score column."""
-    query_vec = model.encode([question]).astype("float32")
+    """Encode *question*, search FAISS, return top_k records with a score column."""
+    _load()
+
+    query_vec = _model.encode([question]).astype("float32")
     faiss.normalize_L2(query_vec)
 
-    scores, indices = index.search(query_vec, top_k)
+    scores, indices = _index.search(query_vec, top_k)
 
-    results = df.iloc[indices[0]].copy()
+    results = _df.iloc[indices[0]].copy()
     results["score"] = scores[0]
     results = results.reset_index(drop=True)
-
     return results

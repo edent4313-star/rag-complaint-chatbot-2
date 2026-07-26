@@ -136,10 +136,31 @@ _fake_pq_table = pa.Table.from_pandas(_fake_table_df)
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
 @pytest.fixture(autouse=True)
-def patch_retriever_io(monkeypatch):
-    """Patch parquet and FAISS reads so no files are needed."""
-    monkeypatch.setattr(pq, "read_table", lambda *a, **kw: _fake_pq_table)
-    monkeypatch.setattr("faiss.read_index", lambda path: _FakeIndex())
+def patch_retriever_io():
+    """
+    Inject fake data into the retriever's lazy singletons before each test
+    and reset them afterwards so no test bleeds into the next.
+
+    We set the singletons directly instead of patching pq.read_table because
+    retriever.py is now lazy — pq.read_table is never called at import time,
+    so patching it is unnecessary. We just pre-fill _df, _model, and _index.
+    """
+    import src.retriever as retriever_mod
+
+    # Build a flat DataFrame that mirrors what _load() would produce
+    flat = _fake_df.copy()
+
+    # Inject all three singletons
+    retriever_mod._df = flat
+    retriever_mod._model = _FakeST()
+    retriever_mod._index = _FakeIndex()
+
+    yield
+
+    # Reset after each test
+    retriever_mod._df = None
+    retriever_mod._model = None
+    retriever_mod._index = None
 
 
 @pytest.fixture(autouse=True)
