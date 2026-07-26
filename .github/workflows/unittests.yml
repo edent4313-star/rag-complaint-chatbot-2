@@ -26,7 +26,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ── Python setup ──────────────────────────────────────────
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -34,9 +33,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
 
-      # ── Install ONLY lightweight CI deps (no torch/transformers/faiss) ──
-      # The heavy ML libs are mocked in tests; installing them would take
-      # 10+ minutes and require large disk space on GitHub runners.
+      # Install lightweight CI deps — heavy ML libs are mocked in conftest.py
       - name: Install CI dependencies
         run: |
           python -m pip install --upgrade pip
@@ -47,53 +44,48 @@ jobs:
             numpy \
             pyarrow \
             python-dotenv \
+            torch \
+            sentence-transformers \
+            faiss-cpu \
+            transformers \
+            accelerate \
             pytest==8.3.5 \
             pytest-flask==1.3.0 \
             pytest-mock==3.14.0 \
             pytest-cov==6.1.0 \
             flake8==7.2.0
 
-      # ── Stub heavy packages so imports don't fail ─────────────
-      # sentence-transformers, faiss-cpu, transformers, torch, accelerate
-      # are ALL mocked inside conftest.py — we just need empty stubs
-      # installed so Python can resolve the import names.
-      - name: Install lightweight ML stubs
-        run: |
-          pip install \
-            sentence-transformers \
-            faiss-cpu \
-            transformers \
-            accelerate
-        continue-on-error: true   # best-effort; conftest stubs cover failures
-
-      # ── Lint ──────────────────────────────────────────────────
-      - name: Lint with flake8
+      # Strict syntax errors only (E9, F63, F7, F82)
+      - name: Lint — syntax errors
         run: |
           flake8 . \
             --count \
             --select=E9,F63,F7,F82 \
             --show-source \
             --statistics
+
+      # Full style pass — warnings only, non-blocking
+      - name: Lint — style warnings
+        run: |
           flake8 . \
             --count \
             --max-line-length=100 \
             --ignore=E501,W503 \
             --exclude=__pycache__,venv,.venv,tests/conftest.py \
             --statistics
+        continue-on-error: true
 
-      # ── Tests ─────────────────────────────────────────────────
-      - name: Run pytest with coverage
+      - name: Run pytest
         run: |
           python -m pytest \
             --cov=. \
-            --cov-report=xml \
+            --cov-report=xml:coverage.xml \
             --cov-report=term-missing \
             -v
 
-      # ── Upload coverage ───────────────────────────────────────
-      - name: Upload backend coverage report
+      - name: Upload backend coverage
         uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
           name: backend-coverage
           path: backend/coverage.xml
@@ -117,7 +109,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ── Node setup ────────────────────────────────────────────
       - name: Set up Node ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
@@ -128,30 +119,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ── Lint ─────────────────────────────────────────────────
-      # Runs only if eslint config exists; skips gracefully if not set up
       - name: Lint with ESLint
         run: npm run lint
         continue-on-error: true
 
-      # ── Tests ─────────────────────────────────────────────────
       - name: Run Vitest
         run: npm test
 
-      # ── Coverage ──────────────────────────────────────────────
       - name: Run Vitest with coverage
         run: npm run test:coverage
 
-      # ── Upload coverage ───────────────────────────────────────
-      - name: Upload frontend coverage report
+      - name: Upload frontend coverage
         uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
           name: frontend-coverage
           path: frontend/coverage/
 
   # ────────────────────────────────────────────────────────────────
-  # Job 3 — Build check (ensure vite build passes)
+  # Job 3 — Build check
   # ────────────────────────────────────────────────────────────────
   build:
     name: Frontend build check
