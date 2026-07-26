@@ -25,29 +25,15 @@ export default function ProductChart() {
     useEffect(() => {
         api.get("/dashboard/products")
             .then((res) => {
-                // Normalise: backend returns [{product, count}] or [{product: "x", "product": n}]
                 const normalised = res.data.map((d) => ({
                     name: d.product,
-                    count: d.count ?? d["product"] ?? 0,
+                    count: d.count ?? 0,
                 }));
                 setData(normalised.slice(0, 10));
             })
             .catch(() => setError("Failed to load product data."))
             .finally(() => setLoading(false));
     }, []);
-
-    const CustomTick = ({ x, y, payload }) => {
-        const words = payload.value.split(" ");
-        return (
-            <text x={x} y={y} textAnchor="end" fill="#555" fontSize={11}>
-                {words.map((w, i) => (
-                    <tspan key={i} x={x} dy={i === 0 ? 0 : 12}>
-                        {w}
-                    </tspan>
-                ))}
-            </text>
-        );
-    };
 
     return (
         <div className="chart-card">

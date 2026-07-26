@@ -27,14 +27,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
 
-      # Install lightweight CI deps — heavy ML libs are mocked in conftest.py
-      - name: Install CI dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install \
@@ -55,8 +54,7 @@ jobs:
             pytest-cov==6.1.0 \
             flake8==7.2.0
 
-      # Strict syntax errors only (E9, F63, F7, F82)
-      - name: Lint — syntax errors
+      - name: Lint — syntax errors (blocking)
         run: |
           flake8 . \
             --count \
@@ -64,8 +62,7 @@ jobs:
             --show-source \
             --statistics
 
-      # Full style pass — warnings only, non-blocking
-      - name: Lint — style warnings
+      - name: Lint — style warnings (non-blocking)
         run: |
           flake8 . \
             --count \
@@ -75,7 +72,7 @@ jobs:
             --statistics
         continue-on-error: true
 
-      - name: Run pytest
+      - name: Run pytest with coverage
         run: |
           python -m pytest \
             --cov=. \
@@ -121,7 +118,6 @@ jobs:
 
       - name: Lint with ESLint
         run: npm run lint
-        continue-on-error: true
 
       - name: Run Vitest
         run: npm test

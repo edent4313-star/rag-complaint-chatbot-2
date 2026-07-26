@@ -1,5 +1,3 @@
-import { MdOpenInNew } from "react-icons/md";
-
 /**
  * Displays a retrieved complaint document used as RAG context.
  * source: one record from the retrieved_df (backend returns sources array)

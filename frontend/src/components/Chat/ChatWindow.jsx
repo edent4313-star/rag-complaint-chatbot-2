@@ -5,6 +5,7 @@ import SourceCard from "./SourceCard";
 import ChatInput from "./ChatInput";
 import { MdExpandMore, MdExpandLess } from "react-icons/md";
 
+
 const SUGGESTED_QUESTIONS = [
     "What are the most common mortgage complaints?",
     "Which companies have the most credit card complaints?",
@@ -49,7 +50,7 @@ export default function ChatWindow() {
                     sources: data.sources || [],
                 },
             ]);
-        } catch (err) {
+        } catch (_err) {
             setMessages((prev) => [
                 ...prev,
                 {
